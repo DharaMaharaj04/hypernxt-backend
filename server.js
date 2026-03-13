@@ -78,8 +78,8 @@ app.post(
         });
       }
 
-      const gstFile = req.files?.gstFile?.[0]?.filename || null;
-      const certFile = req.files?.certFile?.[0]?.filename || null;
+      const gstFile = req.files && req.files.gstFile ? req.files.gstFile[0].filename : null;
+      const certFile = req.files && req.files.certFile ? req.files.certFile[0].filename : null;
 
       const exists = await User.findOne({ email });
 
