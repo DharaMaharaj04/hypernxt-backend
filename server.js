@@ -60,11 +60,12 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+
 /* check email connection */
 
-transporter.verify((err, success) => {
-  if (err) {
-    console.log("SMTP ERROR:", err);
+transporter.verify(function(error, success) {
+  if (error) {
+    console.log("SMTP ERROR:", error);
   } else {
     console.log("SMTP SERVER READY");
   }
@@ -184,41 +185,46 @@ app.post(
 
 /* ---------------- LOGIN ---------------- */
 
-app.post("/login", async (req, res) => {
-  try {
+app.post("/login", async (req,res)=>{
 
-    const { email, password } = req.body;
+  try{
 
-    const user = await User.findOne({ email });
+    const {email,password} = req.body;
 
-    if (!user) {
-      return res.json({ success: false });
+    const user = await User.findOne({email}).select("+password");
+
+    if(!user){
+      return res.json({success:false});
     }
 
-    const match = await bcrypt.compare(password, user.password);
+    const match = await bcrypt.compare(password,user.password);
 
-    if (!match) {
-      return res.json({ success: false });
+    if(!match){
+      return res.json({success:false});
     }
 
     const token = jwt.sign(
-      { email },
+      {email},
       process.env.JWT_SECRET,
-      { expiresIn: "1d" }
+      {expiresIn:"1d"}
     );
 
     res.json({
-      success: true,
-      token,
+      success:true,
+      token
     });
 
-  } catch (err) {
+  }catch(err){
 
-    console.error(err);
+    console.error("Login error:",err);
 
-    res.status(500).json({ success: false });
+    res.status(500).json({
+      success:false,
+      message:"Server error"
+    });
 
   }
+
 });
 
 
