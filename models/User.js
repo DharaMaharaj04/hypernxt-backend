@@ -4,30 +4,38 @@ const UserSchema = new mongoose.Schema({
 
   name: {
     type: String,
-    required: true
+    required: true,
+    trim: true
   },
 
   email: {
     type: String,
     required: true,
-    unique: true
+    unique: true,
+    lowercase: true,
+    trim: true,
+    match: [/^\S+@\S+\.\S+$/, "Please use a valid email address"]
   },
 
   company: {
-    type: String
+    type: String,
+    trim: true
   },
 
   phone: {
-    type: String
+    type: String,
+    trim: true
   },
 
   services: {
-    type: String
+    type: String,
+    trim: true
   },
 
   password: {
     type: String,
-    required: true
+    required: true,
+    select: false
   },
 
   gstFile: {
@@ -44,5 +52,9 @@ const UserSchema = new mongoose.Schema({
   }
 
 });
+
+/* create index for faster login */
+
+UserSchema.index({ email: 1 });
 
 module.exports = mongoose.model("User", UserSchema);

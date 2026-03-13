@@ -20,7 +20,7 @@ app.use(express.json());
 
 /* ---------------- TEST ROUTE ---------------- */
 
-app.get("/", (req,res)=>{
+app.get("/", (req, res) => {
   res.send("API running");
 });
 
@@ -48,13 +48,26 @@ let resetOTP = {};
 /* ---------------- EMAIL CONFIG ---------------- */
 
 const transporter = nodemailer.createTransport({
-  service: "gmail",
-  port: 465,
-  secure: true,
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
+  tls: {
+    rejectUnauthorized: false,
+  },
+});
+
+/* check email connection */
+
+transporter.verify((err, success) => {
+  if (err) {
+    console.log("SMTP ERROR:", err);
+  } else {
+    console.log("SMTP SERVER READY");
+  }
 });
 
 /* ---------------- SIGNUP ---------------- */
@@ -75,26 +88,33 @@ app.post(
 
       if (!name || !email || !password) {
         return res.json({
-          success:false,
-          message:"Missing required fields"
+          success: false,
+          message: "Missing required fields",
         });
       }
 
-      const gstFile = req.files && req.files.gstFile ? req.files.gstFile[0].filename : null;
-      const certFile = req.files && req.files.certFile ? req.files.certFile[0].filename : null;
+      const gstFile =
+        req.files && req.files.gstFile
+          ? req.files.gstFile[0].filename
+          : null;
+
+      const certFile =
+        req.files && req.files.certFile
+          ? req.files.certFile[0].filename
+          : null;
 
       const exists = await User.findOne({ email });
 
       if (exists) {
         return res.json({
-          success:false,
-          message:"User already exists"
+          success: false,
+          message: "User already exists",
         });
       }
 
-      const hash = await bcrypt.hash(password,10);
+      const hash = await bcrypt.hash(password, 10);
 
-      await User.create({
+      const user = await User.create({
         name,
         email,
         company,
@@ -102,45 +122,60 @@ app.post(
         services,
         password: hash,
         gstFile,
-        certFile
+        certFile,
       });
 
-      /* email to admin */
+      /* SEND RESPONSE FIRST (important) */
 
-      await transporter.sendMail({
-        from: process.env.EMAIL_USER,
-        to: process.env.EMAIL_USER,
-        subject: "New Vendor Signup",
-        html: `
+      res.json({
+        success: true,
+        message: "Signup successful",
+      });
+
+      /* SEND EMAIL IN BACKGROUND */
+
+      try {
+
+        /* email to admin */
+
+        await transporter.sendMail({
+          from: process.env.EMAIL_USER,
+          to: process.env.EMAIL_USER,
+          subject: "New Vendor Signup",
+          html: `
           <h3>New Vendor Registration</h3>
           Name: ${name}<br/>
           Email: ${email}<br/>
           Company: ${company}<br/>
           Phone: ${phone}<br/>
           Services: ${services}
-        `,
-      });
+          `,
+        });
 
-      /* confirmation email */
+        /* email to vendor */
 
-      await transporter.sendMail({
-        from: process.env.EMAIL_USER,
-        to: email,
-        subject: "Welcome to Hypernext Vendor Portal",
-        html: `
-          Your vendor account has been created successfully.
-        `,
-      });
+        await transporter.sendMail({
+          from: process.env.EMAIL_USER,
+          to: email,
+          subject: "Welcome to Hypernext Vendor Portal",
+          html: `
+          Your vendor portal account has been created successfully.
+          `,
+        });
 
-      res.json({ success:true });
+      } catch (emailErr) {
+
+        console.log("Email sending failed:", emailErr.message);
+
+      }
 
     } catch (err) {
 
       console.error("Signup error:", err);
 
       res.status(500).json({
-        success:false,
-        error:err.message
+        success: false,
+        message: "Server error",
       });
 
     }
@@ -149,94 +184,115 @@ app.post(
 
 /* ---------------- LOGIN ---------------- */
 
-app.post("/login", async (req,res)=>{
+app.post("/login", async (req, res) => {
+  try {
 
-  try{
+    const { email, password } = req.body;
 
-    const {email,password} = req.body;
+    const user = await User.findOne({ email });
 
-    const user = await User.findOne({email});
-
-    if(!user){
-      return res.json({success:false});
+    if (!user) {
+      return res.json({ success: false });
     }
 
-    const match = await bcrypt.compare(password,user.password);
+    const match = await bcrypt.compare(password, user.password);
 
-    if(!match){
-      return res.json({success:false});
+    if (!match) {
+      return res.json({ success: false });
     }
 
     const token = jwt.sign(
-      {email},
+      { email },
       process.env.JWT_SECRET,
-      {expiresIn:"1d"}
+      { expiresIn: "1d" }
     );
 
     res.json({
-      success:true,
-      token
+      success: true,
+      token,
     });
 
-  }catch(err){
+  } catch (err) {
 
     console.error(err);
 
-    res.status(500).json({success:false});
+    res.status(500).json({ success: false });
 
   }
-
 });
+
 
 /* ---------------- FORGOT PASSWORD ---------------- */
 
 app.post("/forgot-password", async (req,res)=>{
 
-  const {email} = req.body;
-
-  const user = await User.findOne({email});
-
-  if(!user){
-    return res.json({
-      success:false,
-      message:"User not found"
-    });
-  }
-
-  const existing = resetOTP[email];
-
-  if(existing && existing.expires > Date.now()){
-    return res.json({
-      success:true,
-      message:"OTP already sent"
-    });
-  }
-
-  const otp = Math.floor(100000 + Math.random()*900000).toString();
-
-  resetOTP[email] = {
-    otp,
-    expires: Date.now() + 10 * 60 * 1000
-  };
-
-  console.log("OTP:",otp);
-
   try{
 
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: "Hypernext Password Reset OTP",
-      html:`Your OTP is <b>${otp}</b>`
-    });
+    const {email} = req.body;
 
-    res.json({success:true});
+    const user = await User.findOne({email});
+
+    if(!user){
+      return res.json({
+        success:false,
+        message:"User not found"
+      });
+    }
+
+    const existing = resetOTP[email];
+
+    if(existing && existing.expires > Date.now()){
+      return res.json({
+        success:true,
+        message:"OTP already sent"
+      });
+    }
+
+    const otp = Math.floor(100000 + Math.random()*900000).toString();
+
+    resetOTP[email] = {
+      otp,
+      expires: Date.now() + 10 * 60 * 1000
+    };
+
+    console.log("OTP for",email,"=",otp);
+
+    /* send email */
+
+    try{
+
+      await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: "Hypernext Password Reset OTP",
+        html: `
+        <h3>Password Reset</h3>
+        <p>Your OTP is:</p>
+        <h2>${otp}</h2>
+        <p>This OTP expires in 10 minutes.</p>
+        `
+      });
+
+      console.log("OTP email sent");
+
+    }catch(emailErr){
+
+      console.log("OTP email failed:", emailErr.message);
+
+    }
+
+    res.json({
+      success:true,
+      message:"OTP sent"
+    });
 
   }catch(err){
 
-    console.error(err);
+    console.error("Forgot password error:",err);
 
-    res.status(500).json({success:false});
+    res.status(500).json({
+      success:false
+    });
 
   }
 
@@ -244,11 +300,12 @@ app.post("/forgot-password", async (req,res)=>{
 
 /* ---------------- RESET PASSWORD ---------------- */
 
+
 app.post("/reset-password", async (req,res)=>{
 
   try{
 
-    const {email,otp,password} = req.body;
+    const {email, otp, password} = req.body;
 
     const record = resetOTP[email];
 
@@ -276,7 +333,10 @@ app.post("/reset-password", async (req,res)=>{
     const user = await User.findOne({email});
 
     if(!user){
-      return res.json({success:false});
+      return res.json({
+        success:false,
+        message:"User not found"
+      });
     }
 
     const hash = await bcrypt.hash(password,10);
@@ -287,13 +347,18 @@ app.post("/reset-password", async (req,res)=>{
 
     delete resetOTP[email];
 
-    res.json({success:true});
+    res.json({
+      success:true,
+      message:"Password updated"
+    });
 
   }catch(err){
 
-    console.error(err);
+    console.error("Reset password error:",err);
 
-    res.status(500).json({success:false});
+    res.status(500).json({
+      success:false
+    });
 
   }
 
@@ -301,6 +366,6 @@ app.post("/reset-password", async (req,res)=>{
 
 /* ---------------- START SERVER ---------------- */
 
-app.listen(5000,()=>{
+app.listen(5000, () => {
   console.log("Server running on port 5000");
 });
