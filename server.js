@@ -33,7 +33,9 @@ const transporter = nodemailer.createTransport({
 });
 
 async function sendEmail(to, subject, html) {
+
   try {
+
     await transporter.sendMail({
       from: "Hypernext <1scriptics@gmail.com>",
       to,
@@ -44,10 +46,11 @@ async function sendEmail(to, subject, html) {
     console.log("Email sent to:", to);
 
   } catch (err) {
+
     console.error("Email error:", err);
+
   }
 }
-
 /* ---------------- TEST ROUTE ---------------- */
 
 app.get("/", (req, res) => {
