@@ -50,27 +50,33 @@ const dns = require("dns");
 
 dns.setDefaultResultOrder("ipv4first");
 
+const SMTP_HOST = process.env.SMTP_HOST || "smtp.gmail.com";
+const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
+const SMTP_SECURE = process.env.SMTP_SECURE === "true";
+
 const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false,
+  host: SMTP_HOST,
+  port: SMTP_PORT,
+  secure: SMTP_SECURE,
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
+    pass: process.env.EMAIL_PASS,
   },
-  family: 4
+  family: 4,
 });
 
-
-/* check email connection */
-
-transporter.verify(function(error, success) {
+transporter.verify((error) => {
   if (error) {
     console.log("SMTP ERROR:", error);
-  } else {
-    console.log("SMTP SERVER READY");
+    return;
   }
+
+  console.log("SMTP SERVER READY");
 });
+
+async function sendEmail(options) {
+  return transporter.sendMail(options);
+}
 
 /* ---------------- SIGNUP ---------------- */
 
@@ -140,7 +146,7 @@ app.post(
 
         /* email to admin */
 
-        await transporter.sendMail({
+        await sendEmail({
           from: process.env.EMAIL_USER,
           to: process.env.EMAIL_USER,
           subject: "New Vendor Signup",
@@ -156,7 +162,7 @@ app.post(
 
         /* email to vendor */
 
-        await transporter.sendMail({
+        await sendEmail({
           from: process.env.EMAIL_USER,
           to: email,
           subject: "Welcome to Hypernext Vendor Portal",
@@ -268,7 +274,7 @@ app.post("/forgot-password", async (req,res)=>{
 
     try{
 
-      await transporter.sendMail({
+      await sendEmail({
         from: process.env.EMAIL_USER,
         to: email,
         subject: "Hypernext Password Reset OTP",
