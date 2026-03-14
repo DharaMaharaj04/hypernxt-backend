@@ -26,7 +26,7 @@ async function sendEmail(to, subject, html) {
   try {
 
     await resend.emails.send({
-      from: "Hypernext <onboarding@resend.dev>",
+      from: "Hypernext <1scriptics@gmail.com>",
       to,
       subject,
       html
