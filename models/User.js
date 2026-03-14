@@ -55,6 +55,5 @@ const UserSchema = new mongoose.Schema({
 
 /* create index for faster login */
 
-UserSchema.index({ email: 1 });
 
 module.exports = mongoose.model("User", UserSchema);

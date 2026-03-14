@@ -46,6 +46,9 @@ const upload = multer({ storage });
 let resetOTP = {};
 
 /* ---------------- EMAIL CONFIG ---------------- */
+const dns = require("dns");
+
+dns.setDefaultResultOrder("ipv4first");
 
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
@@ -53,11 +56,9 @@ const transporter = nodemailer.createTransport({
   secure: false,
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    pass: process.env.EMAIL_PASS
   },
-  tls: {
-    rejectUnauthorized: false,
-  },
+  family: 4
 });
 
 
