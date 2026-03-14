@@ -23,27 +23,19 @@ app.use(express.json());
 const nodemailer = require("nodemailer");
 
 const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465,
-  secure: true,
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT),
+  secure: false,
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  }
-});
-
-transporter.verify((error) => {
-  if (error) {
-    console.log("SMTP ERROR:", error);
-  } else {
-    console.log("SMTP SERVER READY");
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS
   }
 });
 
 async function sendEmail(to, subject, html) {
   try {
     await transporter.sendMail({
-      from: process.env.EMAIL_USER,
+      from: "Hypernext <1scriptics@gmail.com>",
       to,
       subject,
       html
@@ -52,7 +44,7 @@ async function sendEmail(to, subject, html) {
     console.log("Email sent to:", to);
 
   } catch (err) {
-    console.log("Email error:", err.message);
+    console.error("Email error:", err);
   }
 }
 
