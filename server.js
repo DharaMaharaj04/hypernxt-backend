@@ -20,13 +20,30 @@ app.use(express.json());
 
 /* ---------------- RESEND EMAIL ---------------- */
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const nodemailer = require("nodemailer");
+
+const transporter = nodemailer.createTransport({
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
+});
+
+transporter.verify((error) => {
+  if (error) {
+    console.log("SMTP ERROR:", error);
+  } else {
+    console.log("SMTP SERVER READY");
+  }
+});
 
 async function sendEmail(to, subject, html) {
   try {
-
-    await resend.emails.send({
-      from: "Hypernext <1scriptics@gmail.com>",
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
       to,
       subject,
       html
@@ -35,9 +52,7 @@ async function sendEmail(to, subject, html) {
     console.log("Email sent to:", to);
 
   } catch (err) {
-
     console.log("Email error:", err.message);
-
   }
 }
 
